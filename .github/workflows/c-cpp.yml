@@ -1,0 +1,60 @@
+name: Build Tesseract for Windows (GCC 7.3.0)
+
+on:
+  push:
+    branches:
+      - main  # 或其他你希望触发构建的分支
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up MSYS2
+        run: |
+          choco install msys2
+          refreshenv
+          
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm mingw-w64-x86_64-toolchain
+          pacman -S --noconfirm mingw-w64-x86_64-cmake mingw-w64-x86_64-pkg-config
+
+      - name: Download Tesseract source
+        run: |
+          git clone https://github.com/tesseract-ocr/tesseract.git
+          cd tesseract
+          git submodule update --init --recursive
+
+      - name: Set up GCC 7.3.0
+        run: |
+          # 使用 MSYS2 的软件包安装指定版本的 GCC
+          pacman -S mingw-w64-x86_64-gcc-7.3.0 --noconfirm
+          # 更新 PATH 变量以使用新安装的 GCC
+          echo "C:\\msys64\\mingw64\\bin" >> $env:GITHUB_PATH
+
+      - name: Build Tesseract
+        run: |
+          cd tesseract
+          mkdir build
+          cd build
+          cmake -G "MSYS Makefiles" -DCMAKE_BUILD_TYPE=Release ..
+          make
+
+      - name: Run tests (optional)
+        run: |
+          cd build
+          make check
+
+      - name: Upload build artifacts (optional)
+        uses: actions/upload-artifact@v3
+        with:
+          name: tesseract-build
+          path: build/tesseract.exe
